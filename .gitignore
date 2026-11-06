@@ -1,3 +1,5 @@
 compifiles/*
 
 !compifiles/.gitkeep
+
+semyos.img

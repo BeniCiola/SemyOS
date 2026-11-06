@@ -88,6 +88,27 @@ void shell_command_searcher(char *buffer){
 }
 
 
+void shell_cursor_show(void){
+	uint16_t old_x = print_posx;
+	uint16_t old_y = print_posy;
+
+	put_char('_', 255, 255, 255, 255);
+
+	print_posx = old_x;
+	print_posy = old_y;
+}
+
+void shell_cursor_hide(void){
+	uint16_t old_x = print_posx;
+	uint16_t old_y = print_posy;
+
+	clear_char(0, 0, 0, 255);
+
+	print_posx = old_x;
+	print_posy = old_y;
+}
+
+
 void shell(void){
 	char *buffer = kmalloc(512);
 	if(buffer == NULL) return;
@@ -102,6 +123,8 @@ void shell(void){
 	put_char('>', 255, 255, 255, 255);
 	print_posx += 8;
 
+	//shell_cursor_show();
+
 	while(1){
 		__asm__ volatile ("cli");
 
@@ -113,6 +136,8 @@ void shell(void){
 		__asm__ volatile ("sti");
 
 		uint8_t l = kbd_ring_buffer_pop(&kbd_buffer);
+
+		//shell_cursor_hide();
 
 		if(l == '\n'){
 			shell_command_searcher(buffer);
@@ -127,7 +152,6 @@ void shell(void){
 			print_posy += 16;
 
 			put_char('>', 255, 255, 255, 255);
-
 			print_posx += 8;
 
 			special_char = true;
@@ -168,5 +192,6 @@ void shell(void){
 			}
 		}
 		special_char = false;
+		//shell_cursor_show();
 	}
 }

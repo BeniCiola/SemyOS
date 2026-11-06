@@ -31,7 +31,7 @@ void put_pixel32(uint8_t r, uint8_t g, uint8_t b, uint8_t a){
 void clear_char32(uint8_t r, uint8_t g, uint8_t b, uint8_t a){
 	for(uint8_t y = 0; y < 16; y++){
 		for(uint8_t x = 0; x < 8; x++){
-			put_pixel24(r, g, b, a);
+			put_pixel32(r, g, b, a);
 			print_posx++;
 		}
 		print_posx -= 8;

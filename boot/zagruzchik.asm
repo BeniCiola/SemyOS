@@ -11,7 +11,6 @@ start:
 
     mov [boot_drive], dl
 
-    ; El que toque esto le meto cadena perpétua
     mov ax, 0xB800
     mov es, ax
     mov byte [es:0], 'C'

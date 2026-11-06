@@ -26,6 +26,8 @@
 
 // Memory
 #include "../lib/memory/heap.c"
+#include "../lib/memory/pmm.c"
+#include "../lib/memory/vmm.c"
 #include "../lib/memory/mfunc.c"
 
 // Drivers
@@ -89,6 +91,14 @@ struct framebuffer_info get_framebuffer_info(void){
 __attribute__((section(".init"))) void _zazhiganiye(void){
 	bss_init();
 	init_idt();
+
+	pmm_init(32 * 1024 * 1024, 0x00100000);
+
+	pmm_set_region(0x00200000, 30 * 1024 * 1024, 0);
+
+	vmm_init();
+
+	search_ahci_driver();
 
 	struct framebuffer_info fb = get_framebuffer_info();
 

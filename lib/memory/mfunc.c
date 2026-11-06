@@ -1,3 +1,5 @@
+uint32_t current_heap_virtual_end = 0x00500000;
+
 void* kmalloc(size_t size){
 	if(size == 0) return NULL;
 
@@ -5,48 +7,54 @@ void* kmalloc(size_t size){
 	BlockHeader* last = NULL;
 
 	while(current != NULL){
-		if(current->is_free){
-			if(current->size >= size){
-				current->is_free = 0;
-
-				return (void*)(current + 1);
-			} else if(current->next != NULL && current->next->is_free){
-				if((char*)current + sizeof(BlockHeader) + current->size == (char*)current->next){
-					if((current->size + current->next->size + sizeof(BlockHeader)) >= size){
-						current->size += sizeof(BlockHeader) + current->next->size;
-						current->next = current->next->next;
-
-						current->is_free = 0;
-
-						return (void*)(current + 1);
-					}
-				}
-			}
+		if(current->is_free && current->size >= size){
+			current->is_free = 0;
+			return (void*)(current + 1);
 		}
-
 		last = current;
 		current = current->next;
 	}
 
+	size_t needed_space = size + sizeof(BlockHeader);
+	uint32_t pages_needed = (needed_space + PAGE_SIZE - 1) / PAGE_SIZE;
+
 	BlockHeader* new_block;
+
 	if(last == NULL){
-		new_block = (BlockHeader*)0x00500000;
+		new_block = (BlockHeader*)current_heap_virtual_end;
 		heap_start = new_block;
-	} else{
+	} else {
 		new_block = (BlockHeader*)((char*)last + sizeof(BlockHeader) + last->size);
-		last->next = new_block;
+	}
+
+	for(uint32_t p = 0; p < pages_needed; p++){
+		uint32_t virt_addr = (uint32_t)new_block + (p * PAGE_SIZE);
+
+		if(virt_addr >= current_heap_virtual_end){
+			uint32_t phys_frame = pmm_alloc_block();
+
+			if(!phys_frame) return NULL;
+
+			vmm_map_page(virt_addr, phys_frame, 0);
+
+			current_heap_virtual_end += PAGE_SIZE;
+		}
 	}
 
 	new_block->size = size;
 	new_block->is_free = 0;
 	new_block->next = NULL;
 
+	if(last != NULL){
+		last->next = new_block;
+	}
+
 	return (void*)(new_block + 1);
 }
 
 void kfree(void* ptr){
-	if(ptr == NULL) return;
+    if(ptr == NULL) return;
 
-	BlockHeader* block = ((BlockHeader*)ptr) - 1;
-	block->is_free = 1;
+    BlockHeader* block = ((BlockHeader*)ptr) - 1;
+    block->is_free = 1;
 }
