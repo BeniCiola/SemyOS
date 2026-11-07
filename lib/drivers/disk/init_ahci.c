@@ -43,6 +43,23 @@ typedef volatile struct {
 	ahci_port_t ports[32];
 } ahci_abar_t;
 
+typedef struct __attribute__((packed)) {
+    uint8_t  cfl:5;
+    uint8_t  a:1;
+    uint8_t  w:1;
+    uint8_t  p:1;
+    uint8_t  r:1;
+    uint8_t  b:1;
+    uint8_t  c:1;
+    uint8_t  rsv0:1;
+    uint8_t  pmp:4;
+    uint16_t prdtl;
+    volatile uint32_t prdbc;
+    uint32_t ctba;
+    uint32_t ctbau;
+    uint32_t rsv1[4];
+} ahci_cmd_header_t;
+
 
 ahci_port_t *boot_sata_disk = NULL;
 

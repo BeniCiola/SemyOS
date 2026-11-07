@@ -94,8 +94,30 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 	bss_init();
 	init_idt();
 
+	struct framebuffer_info fb = get_framebuffer_info();
+
+	if(fb.address == 0 || fb.pitch == 0 || fb.width == 0 || fb.height == 0) {
+		while(1) {
+			__asm__ volatile("hlt");
+		}
+	}
+
+	video_init(fb.bpp);
+
+	print_str((uint8_t *)"Video successfully initialized (if you read this).", 255, 255, 255, 255);
+	crlf_cursor();
+
+	print_str((uint8_t *)"Initializing physical memory...", 255, 255, 255, 255);
+	crlf_cursor();
+
 	pmm_init(32 * 1024 * 1024, 0x00100000);
 	pmm_set_region(0x00200000, 30 * 1024 * 1024, 0);
+
+	print_str((uint8_t *)"Physical memory initialized.", 255, 255, 255, 255);
+	crlf_cursor();
+
+	print_str((uint8_t *)"Initializing SATA AHCI driver...", 255, 255, 255, 255);
+	crlf_cursor();
 
 	search_ahci_driver();
 
@@ -117,7 +139,7 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 				if(timeout <= 0) continue;
 
 				if(port->sig == 0x00000101){
-					ahci_stop_cmd(port);
+					ahci_stop_cmd(port)
 
 					uint32_t cmd_list_phys = pmm_alloc_block();
 					port->clb = cmd_list_phys;
@@ -135,19 +157,39 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 		}
 	}
 
+	print_str((uint8_t *)"SATA AHCI driver initialized.", 255, 255, 255, 255);
+	crlf_cursor();
+
+
+	print_str((uint8_t *)"Initializing virtual memory...", 255, 255, 255, 255);
+	crlf_cursor();
+
 	vmm_init();
 
-	struct framebuffer_info fb = get_framebuffer_info();
+	print_str((uint8_t *)"Virtual memory initialized.", 255, 255, 255, 255);
+	crlf_cursor();
 
-	if(fb.address == 0 || fb.pitch == 0 || fb.width == 0 || fb.height == 0) {
-		while(1) {
-			__asm__ volatile("hlt");
-		}
-	}
 
-	video_init(fb.bpp);
+	print_str((uint8_t *)"Initializing multitasking manager...", 255, 255, 255, 255);
+	crlf_cursor();
 
 	korolev_init();
+
+	print_str((uint8_t *)"Multitasking manager initialized.", 255, 255, 255, 255);
+	crlf_cursor();
+
+
+	print_str((uint8_t *)"Triying to run system...", 255, 255, 255, 255);
+	crlf_cursor();
+
+	sleep_millis(1500);
+
+	clear_screen(0, 0, 0, 0);
+	print_posx = 0;
+	print_posy = 0;
+
+	print_str((uint8_t *)"Welcome to SemyOS: A system for engineers.", 255, 255, 255, 255);
+	crlf_cursor();
 
 	task_create(shell);
 

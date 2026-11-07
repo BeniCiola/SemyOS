@@ -21,6 +21,11 @@ int16_t print_posx = 0;
 int16_t print_posy = 0;
 
 
+void crlf_cursor(void){
+	print_posx = 0;
+	print_posy += 16;
+}
+
 void video_init(uint8_t bpp){
 	if (bpp == 24) {
 		put_pixel = put_pixel24;
