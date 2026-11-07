@@ -33,6 +33,8 @@
 // Drivers
 #include "../lib/drivers/timer.c"
 #include "../lib/drivers/keyboard.c"
+#include "../lib/drivers/disk/init_ahci.c"
+#include "../lib/drivers/disk/comm.c"
 
 // Controllers for my incredible programs
 #include "../lib/process/task.c"
@@ -93,12 +95,47 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 	init_idt();
 
 	pmm_init(32 * 1024 * 1024, 0x00100000);
-
 	pmm_set_region(0x00200000, 30 * 1024 * 1024, 0);
 
-	vmm_init();
-
 	search_ahci_driver();
+
+	if(driver_ahci){
+		ahci_abar_t *abar = (ahci_abar_t *)ahci_controller.abar_physical;
+		uint32_t ports_implemented = abar->pi;
+
+		for(int i = 0; i < 32; i++){
+			if(ports_implemented & (1 << i)){
+				ahci_port_t *port = &abar->ports[i];
+
+				port->sctl = 1;
+				for(volatile int delay = 0; delay < 10000; delay++);
+				port->sctl = 0;
+
+				int timeout = 1000000;
+				while(((port->ssts & 0x0F) != 3) && (--timeout > 0));
+
+				if(timeout <= 0) continue;
+
+				if(port->sig == 0x00000101){
+					ahci_stop_cmd(port);
+
+					uint32_t cmd_list_phys = pmm_alloc_block();
+					port->clb = cmd_list_phys;
+					port->clbu = 0;
+
+					uint32_t fis_phys = pmm_alloc_block();
+					port->fb = fis_phys;
+					port->fbu = 0;
+
+					ahci_start_cmd(port);
+
+					break;
+				}
+			}
+		}
+	}
+
+	vmm_init();
 
 	struct framebuffer_info fb = get_framebuffer_info();
 
