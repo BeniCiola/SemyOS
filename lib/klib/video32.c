@@ -59,6 +59,19 @@ void put_char32(uint8_t l, uint8_t r, uint8_t g, uint8_t b, uint8_t a){
 	print_posy -= 16;
 }
 
+void put_hex32(uint8_t hex, uint8_t r, uint8_t g, uint8_t b, uint8_t a){
+	const char hex_chars[] = "0123456789ABCDEF";
+
+	uint8_t alto = (hex >> 4) & 0x0F;
+	uint8_t bajo = hex & 0x0F;
+
+	put_char32(hex_chars[alto], r, g, b, a);
+	print_posx += 8;
+
+	put_char32(hex_chars[bajo], r, g, b, a);
+	print_posx += 8;
+}
+
 void print_str32(uint8_t *str, uint8_t r, uint8_t g, uint8_t b, uint8_t a){
 	while(*str != 0x00){
 		put_char32(*str, r, g, b, a);

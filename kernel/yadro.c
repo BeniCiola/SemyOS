@@ -3,9 +3,15 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-// Before libraries
+// Before things
 	#define BUFFER_SIZE	256
 	#define BUFFER_MASK	(BUFFER_SIZE - 1)
+
+	#define PTE_CACHE_DISABLE 0x10
+	#define PTE_PRESENT 0x01
+	#define PTE_RW 0x02
+
+	void vmm_map_page(uint32_t virt, uint32_t phys, uint32_t flags);
 
 	typedef struct {
 		uint8_t data[BUFFER_SIZE];
@@ -18,6 +24,14 @@
 	bool kbd_ring_buffer_is_empty(KbdRingBuffer *rb);
 	bool kbd_ring_buffer_push(KbdRingBuffer *rb, uint8_t val);
 	uint8_t kbd_ring_buffer_pop(KbdRingBuffer *rb);
+
+
+// Video
+#define FONT8x16_IMPLEMENTATION
+#include "../lib/hubenchang0515/font8x16.h"
+#include "../lib/klib/video.c"
+#include "../lib/klib/video24.c"
+#include "../lib/klib/video32.c"
 
 // Kernel Libraries
 #include "../lib/PIC/pic.c"
@@ -32,20 +46,22 @@
 
 // Drivers
 #include "../lib/drivers/timer.c"
-#include "../lib/drivers/keyboard.c"
+
+#include "../lib/drivers/keyboard/keyboard.c"
+#include "../lib/drivers/keyboard/ps2.c"
+
 #include "../lib/drivers/disk/init_ahci.c"
 #include "../lib/drivers/disk/comm.c"
 
-// Controllers for my incredible programs
+#include "../lib/drivers/usb/xhci.c"
+
+#include "../lib/drivers/audio/audio_structure.c"
+#include "../lib/drivers/audio/audio_init.c"
+//#include "../lib/drivers/audio/audio_comm.c"
+
+// Multitasking, Mr. White
 #include "../lib/process/task.c"
 #include "../lib/process/korolev.c"
-
-// Video
-#define FONT8x16_IMPLEMENTATION
-#include "../lib/hubenchang0515/font8x16.h"
-#include "../lib/klib/video.c"
-#include "../lib/klib/video24.c"
-#include "../lib/klib/video32.c"
 
 // Programs
 #include "../programs/shell/list.c"
@@ -116,50 +132,6 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 	print_str((uint8_t *)"Physical memory initialized.", 255, 255, 255, 255);
 	crlf_cursor();
 
-	print_str((uint8_t *)"Initializing SATA AHCI driver...", 255, 255, 255, 255);
-	crlf_cursor();
-
-	search_ahci_driver();
-
-	if(driver_ahci){
-		ahci_abar_t *abar = (ahci_abar_t *)ahci_controller.abar_physical;
-		uint32_t ports_implemented = abar->pi;
-
-		for(int i = 0; i < 32; i++){
-			if(ports_implemented & (1 << i)){
-				ahci_port_t *port = &abar->ports[i];
-
-				port->sctl = 1;
-				for(volatile int delay = 0; delay < 10000; delay++);
-				port->sctl = 0;
-
-				int timeout = 1000000;
-				while(((port->ssts & 0x0F) != 3) && (--timeout > 0));
-
-				if(timeout <= 0) continue;
-
-				if(port->sig == 0x00000101){
-					ahci_stop_cmd(port)
-
-					uint32_t cmd_list_phys = pmm_alloc_block();
-					port->clb = cmd_list_phys;
-					port->clbu = 0;
-
-					uint32_t fis_phys = pmm_alloc_block();
-					port->fb = fis_phys;
-					port->fbu = 0;
-
-					ahci_start_cmd(port);
-
-					break;
-				}
-			}
-		}
-	}
-
-	print_str((uint8_t *)"SATA AHCI driver initialized.", 255, 255, 255, 255);
-	crlf_cursor();
-
 
 	print_str((uint8_t *)"Initializing virtual memory...", 255, 255, 255, 255);
 	crlf_cursor();
@@ -167,6 +139,59 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 	vmm_init();
 
 	print_str((uint8_t *)"Virtual memory initialized.", 255, 255, 255, 255);
+	crlf_cursor();
+
+
+	print_str((uint8_t *)"Initializing SATA AHCI driver...", 255, 255, 255, 255);
+	crlf_cursor();
+
+	search_ahci_driver();
+
+	if(driver_ahci){
+		init_ahci();
+
+		ahci_abar_t *abar = (ahci_abar_t *)ahci_controller.abar_physical;
+		ahci_detect_ports(abar);
+	}
+
+	if(boot_sata_disk != NULL){
+		print_str((uint8_t *)"SATA AHCI driver initialized.", 255, 255, 255, 255);
+		crlf_cursor();
+	} else {
+		print_str((uint8_t *)"Direct SATA not found. Trying USB xHCI...", 255, 255, 0, 255);
+		crlf_cursor();
+
+		search_xhci_driver();
+		init_xhci();
+
+		if(!driver_xhci){
+			print_str((uint8_t *)"No SATA or USB xHCI found. Please boot with a valid disk next time.", 255, 55, 55, 255);
+			crlf_cursor();
+			print_str((uint8_t *)"Entering in sleep mode...", 255, 55, 55, 255);
+			while (1) {
+				__asm__ volatile("hlt");
+			}
+		}
+	}
+
+	print_str((uint8_t *)"Initializing PS/2 in the madafaka BIOS...", 255, 255, 255, 255);
+	crlf_cursor();
+
+	init_ps2_controller();
+
+
+	print_str((uint8_t *)"Initializing Intel HDA driver...", 255, 255, 255, 255);
+	crlf_cursor();
+
+	search_audio_driver();
+
+	if(driver_hda){
+		init_audio();
+		print_str((uint8_t *)"Intel HDA driver initialized.", 255, 255, 255, 255);
+	} else {
+		print_str((uint8_t *)"Intel HDA not found.", 255, 100, 0, 255);
+	}
+
 	crlf_cursor();
 
 

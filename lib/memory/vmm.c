@@ -1,5 +1,3 @@
-#define PTE_PRESENT 0x01
-#define PTE_RW 0x02
 #define PTE_USER 0x04
 
 __attribute__((aligned(4096))) uint32_t page_directory[1024];
@@ -9,7 +7,7 @@ void vmm_init(void) {
         page_directory[i] = 0x00000002;
     }
 
-	for(uint16_t t = 0; t < 1024; t++){
+	for(uint32_t t = 0; t < 1024; t++){
 		uint32_t pt_phys = pmm_alloc_block();
 		uint32_t *page_table = (uint32_t *)pt_phys;
 

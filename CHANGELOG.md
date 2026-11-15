@@ -25,6 +25,20 @@
 - lib/: Contains all the necessary libraries.
 - compifiles/: Contains all the files that are compiled.
 - tools/: Contains the tools the system uses to build itself.
+- programs/: Contains the included programs in kernel
+
+## Version 0.1.1
+
+### Added
+- Avanced memory management system.
+- Physical Memory Manager (PMM).
+- Virtual Memory Manager (VMM).
+- SATA AHCI and Mass Storage Device drivers.
+- Keyboard PS/2 driver (compatibility with 20 years ago (I hope (really hope))).
+
+## In process
+- More functionalities for shell.
+- Intel HDA driver.
 
 
 ## Spanish
@@ -49,3 +63,16 @@
 - lib/: Contiene todas las librerías necesarias.
 - compifiles/: Contiene todos los archivos compilados.
 - tools/: Contiene las herramientas que el sistema usa para crearse.
+
+## Verión 0.1.1
+
+## Añadido
+- Sistema gestor de memoria avanzado.
+- Physical Memory Manager (PMM).
+- Virutal Memory Manager (VMM).
+- Controladores para SATA AHCI y Mass Storage Devices.
+- Controlador para teclado PS/2 (Compatibilidad para hace 20 años atras (espero (realmente espero))).
+
+# En proceso
+- Más funcionalidades para la shell.
+- Controlador para el Intel HDA.
