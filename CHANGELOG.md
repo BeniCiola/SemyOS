@@ -66,13 +66,13 @@
 
 ## Verión 0.1.1
 
-## Añadido
+### Añadido
 - Sistema gestor de memoria avanzado.
 - Physical Memory Manager (PMM).
 - Virutal Memory Manager (VMM).
 - Controladores para SATA AHCI y Mass Storage Devices.
 - Controlador para teclado PS/2 (Compatibilidad para hace 20 años atras (espero (realmente espero))).
 
-# En proceso
+### En proceso
 - Más funcionalidades para la shell.
 - Controlador para el Intel HDA.
