@@ -1,3 +1,5 @@
+// Union of Socialist Soviet Republics >>> United States
+
 // External Libreries
 #include <stdint.h>
 #include <stddef.h>
@@ -25,15 +27,20 @@
 	bool kbd_ring_buffer_push(KbdRingBuffer *rb, uint8_t val);
 	uint8_t kbd_ring_buffer_pop(KbdRingBuffer *rb);
 
+	uint32_t hda_send_verb(uint32_t bar0, uint8_t codec_addr, uint32_t verb);
+	void hda_comm_init(uint32_t bar0_virt_address, uint32_t oss_offset);
+	void hda_init_corb_rirb(uint32_t bar0_virt_address);
 
-// Video
+
+// Kernel Libraries
 #define FONT8x16_IMPLEMENTATION
 #include "../lib/hubenchang0515/font8x16.h"
 #include "../lib/klib/video.c"
 #include "../lib/klib/video24.c"
 #include "../lib/klib/video32.c"
+#include "../lib/klib/strings.c"
 
-// Kernel Libraries
+// Kernel Libraries: Second Edition
 #include "../lib/PIC/pic.c"
 #include "../lib/IDT/idt.h"
 #include "../lib/IDT/idt.c"
@@ -44,6 +51,10 @@
 #include "../lib/memory/vmm.c"
 #include "../lib/memory/mfunc.c"
 
+// Multitasking, Mr. White
+#include "../lib/process/task.c"
+#include "../lib/process/korolev.c"
+
 // Drivers
 #include "../lib/drivers/timer.c"
 
@@ -51,17 +62,18 @@
 #include "../lib/drivers/keyboard/ps2.c"
 
 #include "../lib/drivers/disk/init_ahci.c"
-#include "../lib/drivers/disk/comm.c"
+#include "../lib/drivers/disk/comm_ahci.c"
 
 #include "../lib/drivers/usb/xhci.c"
 
 #include "../lib/drivers/audio/audio_structure.c"
 #include "../lib/drivers/audio/audio_init.c"
-//#include "../lib/drivers/audio/audio_comm.c"
+#include "../lib/drivers/audio/audio_comm.c"
 
-// Multitasking, Mr. White
-#include "../lib/process/task.c"
-#include "../lib/process/korolev.c"
+// MIK File System
+#include "../MIK/mik_structure.c"
+#include "../MIK/mik_init.c"
+#include "../MIK/mik_comm.c"
 
 // Programs
 #include "../programs/shell/list.c"
@@ -179,6 +191,18 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 
 	init_ps2_controller();
 
+	print_str((uint8_t *)"PS/2 initialized.", 255, 255, 255, 255);
+	crlf_cursor();
+
+
+	print_str((uint8_t *)"Initializing MIK File System...", 255, 255, 255, 255);
+	crlf_cursor();
+
+	if(mik_mount()){
+		print_str((uint8_t *)"MIK File System initialized.", 255, 255, 255, 255);
+		crlf_cursor();
+	}
+
 
 	print_str((uint8_t *)"Initializing Intel HDA driver...", 255, 255, 255, 255);
 	crlf_cursor();
@@ -186,10 +210,11 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 	search_audio_driver();
 
 	if(driver_hda){
-		init_audio();
-		print_str((uint8_t *)"Intel HDA driver initialized.", 255, 255, 255, 255);
+    	init_audio();
+
+    	print_str((uint8_t *)"Intel HDA driver initialized.", 255, 255, 255, 255);
 	} else {
-		print_str((uint8_t *)"Intel HDA not found.", 255, 100, 0, 255);
+		print_str((uint8_t *)"Intel HDA not found.", 255, 255, 0, 255);
 	}
 
 	crlf_cursor();
@@ -217,6 +242,16 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 	crlf_cursor();
 
 	task_create(shell);
+
+
+	hda_start_daemon();
+
+	static uint16_t tone[48];
+	for(int i = 0; i < 48; i++){
+    	tone[i] = (i < 24) ? 8000 : (uint16_t)-8000;
+	}
+	hda_play_sound(tone, 48, 1000);
+
 
 	while(1){
 		__asm__ volatile("hlt");

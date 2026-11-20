@@ -7,9 +7,6 @@ static inline void ps2_wait_read(void) {
 }
 
 void init_ps2_controller(void) {
-    print_str((uint8_t *)"Initializing PS/2 controller strictly...", 255, 255, 0, 255);
-    crlf_cursor();
-
     ps2_wait_write();
     outb(0x64, 0xAD);
     ps2_wait_write();
@@ -43,7 +40,4 @@ void init_ps2_controller(void) {
 
     ps2_wait_write();
     outb(0x60, 0xF4);
-
-    print_str((uint8_t *)"PS/2 Controller initialized perfectly!", 55, 255, 55, 255);
-    crlf_cursor();
 }

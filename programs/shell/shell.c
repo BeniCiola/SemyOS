@@ -14,8 +14,15 @@ void shell_command_executer(Command command, uint8_t args_number, char *args){
 
 		command.function(args);
 		kfree(args);
+	} else if(command.args_num == 0){
+			command.function(NULL);
+			kfree(args);
 	} else {
-		command.function(NULL);
+		print_posy += 16;
+		print_posx = 0;
+		print_str(invalid_num_args, 255, 50, 50, 255);
+
+		kfree(args);
 	}
 }
 
@@ -23,6 +30,8 @@ void shell_command_searcher(char *buffer){
 	uint8_t commandnt[] = "Error [command]: The command doesn't exist";
 
 	uint8_t list_i = 0;
+
+	strupper(buffer);
 
 	while(commands_list[list_i].name != NULL){
 		uint8_t buffer_letter_i = 0;
@@ -88,27 +97,6 @@ void shell_command_searcher(char *buffer){
 }
 
 
-void shell_cursor_show(void){
-	uint16_t old_x = print_posx;
-	uint16_t old_y = print_posy;
-
-	put_char('_', 255, 255, 255, 255);
-
-	print_posx = old_x;
-	print_posy = old_y;
-}
-
-void shell_cursor_hide(void){
-	uint16_t old_x = print_posx;
-	uint16_t old_y = print_posy;
-
-	clear_char(0, 0, 0, 255);
-
-	print_posx = old_x;
-	print_posy = old_y;
-}
-
-
 void shell(void){
 	char *buffer = kmalloc(512);
 	if(buffer == NULL) return;
@@ -120,10 +108,10 @@ void shell(void){
 		buffer[i] = 0x00;
 	}
 
+	print_str(current_path, 144, 213, 255, 255);
 	put_char('>', 255, 255, 255, 255);
 	print_posx += 8;
-
-	//shell_cursor_show();
+	put_char('_', 255, 255, 255, 255);
 
 	while(1){
 		__asm__ volatile ("cli");
@@ -137,7 +125,7 @@ void shell(void){
 
 		uint8_t l = kbd_ring_buffer_pop(&kbd_buffer);
 
-		//shell_cursor_hide();
+		put_char('_', 0, 0, 0, 255);
 
 		if(l == '\n'){
 			shell_command_searcher(buffer);
@@ -151,6 +139,7 @@ void shell(void){
 			print_posx = 0;
 			print_posy += 16;
 
+			print_str(current_path, 144, 213, 255, 255);
 			put_char('>', 255, 255, 255, 255);
 			print_posx += 8;
 
@@ -171,7 +160,6 @@ void shell(void){
 				*(buffer + buffer_index) = 0x00;
 
 				clear_char(0, 0, 0, 255);
-
 				print_posx += 8;
 			}
 			special_char = true;
@@ -191,7 +179,8 @@ void shell(void){
 				print_posx = 0;
 			}
 		}
+		put_char('_', 255, 255, 255, 255);
+
 		special_char = false;
-		//shell_cursor_show();
 	}
 }

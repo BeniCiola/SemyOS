@@ -14,6 +14,16 @@ inline uint8_t inb(uint16_t port){
 	return ret;
 }
 
+inline void outl(uint16_t port, uint32_t val){
+	__asm__ volatile ( "outl %0, %w1" : : "a"(val), "Nd"(port) );
+}
+
+inline uint32_t inl(uint16_t port){
+	uint32_t ret;
+	__asm__ volatile ( "inl %w1, %0" : "=a"(ret) : "Nd"(port) );
+	return ret;
+}
+
 inline void io_wait(void){
 	outb(0x80, 0);
 }
@@ -38,24 +48,15 @@ void pic_remap(void){
 
 static inline uint32_t pci_read_config(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
 	uint32_t address = (uint32_t)(
-		(1 << 31) |
-		(bus << 16) |
-		(slot << 11) |
-		(func << 8) |
+		(1u << 31) |
+		((uint32_t)bus << 16) |
+		((uint32_t)slot << 11) |
+		((uint32_t)func << 8) |
 		(offset & 0xFC)
 	);
 
-	uint32_t data;
-
-	__asm__ volatile (
-		"outl %0, %%dx\n\t"
-		"movw $0xCFC, %%dx\n\t"
-		"inl %%dx, %0"
-		: "=a" (data)
-		: "a" (address), "d" (0xCF8)
-	);
-
-	return data;
+	outl(0xCF8, address);
+	return inl(0xCFC);
 }
 
 static inline void pci_write_config(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint32_t value) {
@@ -67,15 +68,6 @@ static inline void pci_write_config(uint8_t bus, uint8_t slot, uint8_t func, uin
 		(offset & 0xFC)
 	);
 
-	__asm__ volatile (
-		"outl %0, %%dx"
-		:
-		: "a" (address), "d" ((uint16_t)0xCF8)
-	);
-
-	__asm__ volatile (
-		"outl %0, %%dx"
-		:
-		: "a" (value), "d" ((uint16_t)0xCFC)
-	);
+	outl(0xCF8, address);
+	outl(0xCFC, value);
 }

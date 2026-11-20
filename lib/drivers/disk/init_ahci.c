@@ -160,10 +160,10 @@ void init_ahci(void) {
 
 	uint32_t check_reg = pci_read_config(bus, slot, func, 0x04);
 	if (!(check_reg & (1 << 2))) {
-		print_str((uint8_t *)"Error: PCI Bus Master could not be enabled!", 255, 55, 55, 255);
+		print_str((uint8_t *)"Error: PCI Bus Master could not be enabled.", 255, 10, 10, 255);
 		crlf_cursor();
 	} else {
-		print_str((uint8_t *)"PCI Bus Master successfully enabled.", 55, 255, 55, 255);
+		print_str((uint8_t *)"PCI Bus Master successfully enabled.", 255, 255, 255, 255);
 		crlf_cursor();
 	}
 
@@ -285,58 +285,3 @@ void ahci_detect_ports(ahci_abar_t *abar){
 		}
 	}
 }
-
-
-/*
-void ahci_detect_ports(ahci_abar_t *abar){
-	uint32_t ports_implemented = abar->pi;
-
-	for(int i = 0; i < 32; i++){
-		if(ports_implemented & (1 << i)){
-			ahci_port_t *port = &abar->ports[i];
-
-			ahci_stop_cmd(port);
-
-			port->sctl = (port->sctl & ~0x0F) | 1;
-			volatile uint32_t dummy = port->sctl;
-			(void)dummy;
-
-			sleep_millis(15);
-
-			port->sctl = (port->sctl & ~0x0F);
-			dummy = port->sctl;
-
-			int timeout = 1000000;
-			while(((port->ssts & 0x0F) != 3) && (--timeout > 0));
-
-			print_str((uint8_t *)"Port SSTS: ", 255, 255, 0, 255);
-			put_hex(port->ssts, 255, 255, 255, 255);
-			crlf_cursor();
-
-			if(timeout <= 0) continue;
-
-			port->serr = port->serr;
-			port->is = port->is;
-
-			sleep_millis(200);
-
-			ahci_port_init(port);
-			sleep_millis(10);
-
-			int dev_type = ahci_check_device_type(port);
-
-			print_str((uint8_t *)"Port SIG: ", 255, 255, 0, 255);
-			put_hex(port->sig, 255, 255, 255, 255);
-			crlf_cursor();
-
-			if(dev_type == AHCI_DEV_SATA){
-				if(boot_sata_disk == NULL){
-					boot_sata_disk = port;
-				}
-			} else {
-				ahci_stop_cmd(port);
-			}
-		}
-	}
-}
-*/

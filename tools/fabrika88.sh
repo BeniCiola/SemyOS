@@ -54,11 +54,11 @@ cat compifiles/boot.bin compifiles/kernel.bin > semyos.img
 kernel_size=$(stat -c %s compifiles/kernel.bin)
 
 if (( kernel_size > 64 * 512 )); then
-	echo "ERROR: kernel exceeds the 16 KiB bootloader limit."
+	echo "ERROR: kernel exceeds the 32 KiB bootloader limit."
 	exit 1
 fi
 
-truncate -s $((65 * 512)) semyos.img
+truncate -s $((20480 * 512)) semyos.img
 
 echo "Done."
 
@@ -67,12 +67,14 @@ executer_pro_max() {
 
 	if [[ -z "$execute" || "${execute,,}" == "y" ]]; then
 		echo "Running Semyorka..."
-		qemu-system-i386 -m 256M \
-			-drive file=semyos.img,format=raw,index=0,media=disk \
-			-drive id=sata1,file=semyos.img,format=raw,if=none,file.locking=off \
-			-device ahci,id=ahci \
-			-device ide-hd,drive=sata1,bus=ahci.0 \
-			-audiodev none,id=no_sound
+		PULSE_SERVER=unix:/mnt/wslg/PulseServer qemu-system-i386 -m 256M \
+        -drive file=semyos.img,format=raw,index=0,media=disk \
+        -drive id=sata1,file=semyos.img,format=raw,if=none,file.locking=off \
+        -device ahci,id=ahci \
+        -device ide-hd,drive=sata1,bus=ahci.0 \
+        -audiodev pa,id=snd0 \
+        -device intel-hda \
+        -device hda-output,audiodev=snd0
 
 		exit 0
 	elif [[ "${execute,,}" == "n" ]]; then
