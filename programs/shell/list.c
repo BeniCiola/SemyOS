@@ -53,6 +53,16 @@ void shell_command_reboot(char *args){
 }
 
 
+// COMMAND AUDIOTEST---------------------------------------
+void shell_command_audiotest(char *args){
+	static uint16_t tone[48];
+	for(int i = 0; i < 48; i++){
+    	tone[i] = (i < 24) ? 4000 : (uint16_t)-4000;
+	}
+	hda_play_sound(tone, 48, 1000);
+}
+
+
 // COMMAND ISHERE------------------------------------------
 void shell_command_ishere(char *args){
 	if(mik_lookup(current_dir_inode, args) >= 0){
@@ -235,6 +245,7 @@ Command commands_list[] = {
 	{"clear", false, 0, shell_command_clear},
 	{"echo", true, 1, shell_command_echo},
 	{"reboot", false, 0, shell_command_reboot},
+	{"audiotest", false, 0, shell_command_audiotest},
 	{"ishere", true, 1, shell_command_ishere},
 	{"mkdir", true, 1, shell_command_mkdir},
 	{"touch", true, 1, shell_command_touch},

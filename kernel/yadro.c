@@ -74,6 +74,7 @@
 #include "../MIK/mik_structure.c"
 #include "../MIK/mik_init.c"
 #include "../MIK/mik_comm.c"
+#include "../MIK/mik_handlers.c"
 
 // Programs
 #include "../programs/shell/list.c"
@@ -243,15 +244,7 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 
 	task_create(shell);
 
-
 	hda_start_daemon();
-
-	static uint16_t tone[48];
-	for(int i = 0; i < 48; i++){
-    	tone[i] = (i < 24) ? 8000 : (uint16_t)-8000;
-	}
-	hda_play_sound(tone, 48, 1000);
-
 
 	while(1){
 		__asm__ volatile("hlt");
