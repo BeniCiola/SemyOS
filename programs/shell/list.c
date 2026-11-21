@@ -1,3 +1,5 @@
+#define TOTAL_SHELL_COMMANDS 12
+
 typedef void (*CommandFunc)(char *args);
 
 typedef struct {
@@ -5,7 +7,24 @@ typedef struct {
 	bool args;
 	uint8_t args_num;
 	CommandFunc function;
+	const char *description;
 } Command;
+
+extern Command commands_list[TOTAL_SHELL_COMMANDS];
+
+
+// COMMAND HELP--------------------------------------------
+void shell_command_help(char *args){
+	(void)args;
+
+	for(uint16_t i = 0; commands_list[i].name != NULL; i++){
+		crlf_cursor();
+		print_str((uint8_t *)"- ", 255, 255, 255, 255);
+		print_str((uint8_t *)commands_list[i].name, 255, 255, 255, 255);
+		print_str((uint8_t *)" - ", 255, 255, 255, 255);
+		print_str((uint8_t *)commands_list[i].description, 255, 255, 144, 255);
+	}
+}
 
 
 // COMMAND CLEAR-------------------------------------------
@@ -241,16 +260,17 @@ void shell_command_ls(char *args){
 
 
 // COMMANDS LIST-------------------------------------------
-Command commands_list[] = {
-	{"clear", false, 0, shell_command_clear},
-	{"echo", true, 1, shell_command_echo},
-	{"reboot", false, 0, shell_command_reboot},
-	{"audiotest", false, 0, shell_command_audiotest},
-	{"ishere", true, 1, shell_command_ishere},
-	{"mkdir", true, 1, shell_command_mkdir},
-	{"touch", true, 1, shell_command_touch},
-	{"cd", true, 1, shell_command_cd},
-	{"chmod", true, 3, shell_command_chmod},
-	{"ls", false, 0, shell_command_ls},
-	{NULL, false, 0, NULL}
+Command commands_list[TOTAL_SHELL_COMMANDS] = {
+	{"clear",     false, 0, shell_command_clear,     "Clears the terminal screen."},
+	{"echo",      true,  1, shell_command_echo,      "Prints text in terminal. (echo <text>)"},
+	{"reboot",    false, 0, shell_command_reboot,    "Reboots the system."},
+	{"audiotest", false, 0, shell_command_audiotest, "Plays a 1 second long pip."},
+	{"ishere",    true,  1, shell_command_ishere,    "'Is this file/directory in this directory?' (ishere <name.ext>)"},
+	{"mkdir",     true,  1, shell_command_mkdir,     "Creates a new directory. (mkdir <name>)"},
+	{"touch",     true,  1, shell_command_touch,     "Creates a new file. (touch <name>)"},
+	{"cd",        true,  1, shell_command_cd,        "Changes the current directory. (cd <dir>)"},
+	{"chmod",     true,  3, shell_command_chmod,     "Changes file permissions. (chmod <file> <perm> <state>)"},
+	{"ls",        false, 0, shell_command_ls,        "Lists directory contents."},
+	{"help",      false, 0, shell_command_help,      "Displays the list of available commands."},
+	{NULL,        false, 0, NULL,                    NULL}
 };
