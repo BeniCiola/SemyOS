@@ -1,3 +1,4 @@
+(assets/banner.png)
 # SemyOS - Semyorka Operating System
 
 ## We (now we are two) have for you:
