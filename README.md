@@ -1,4 +1,9 @@
-![Banner de SemyOS](assets/banner.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/banner.png">
+  <source media="(prefers-color-scheme: light)" srcset="assets/banner2.png">
+  <img alt="SemyOS Banner" src="assets/banner.png">
+</picture>
+
 # SemyOS - Semyorka Operating System
 
 ## We (now we are two) have for you:
