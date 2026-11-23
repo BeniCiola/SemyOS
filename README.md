@@ -1,4 +1,4 @@
-(assets/banner.png)
+![Banner de SemyOS](assets/banner.png)
 # SemyOS - Semyorka Operating System
 
 ## We (now we are two) have for you:
