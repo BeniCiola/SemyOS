@@ -1,4 +1,4 @@
-#define TOTAL_SHELL_COMMANDS 12
+#define TOTAL_SHELL_COMMANDS 13
 
 typedef void (*CommandFunc)(char *args);
 
