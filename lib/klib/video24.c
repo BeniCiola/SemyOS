@@ -1,5 +1,7 @@
 volatile uint8_t *framebuffer;
 
+extern void crlf_cursor(void);
+
 void put_pixel24(uint8_t r, uint8_t g, uint8_t b, uint8_t a){
 	(void)a;
 
@@ -58,6 +60,12 @@ void put_hex24(uint8_t hex, uint8_t r, uint8_t g, uint8_t b, uint8_t a){
 
 void print_str24(uint8_t *str, uint8_t r, uint8_t g, uint8_t b, uint8_t a){
 	while(*str != 0x00){
+		if(*str == '\n'){
+			crlf_cursor();
+			str++;
+			continue;
+		}
+
 		put_char(*str, r, g, b, a);
 
 		if(print_posx < 1024){

@@ -80,6 +80,9 @@
 #include "../programs/shell/list.c"
 #include "../programs/shell/shell.c"
 
+// Intro
+#include "intro.h"
+
 
 extern uint8_t __bss_start;
 extern uint8_t __bss_end;
@@ -230,21 +233,34 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 	crlf_cursor();
 
 
-	print_str((uint8_t *)"Triying to run system...", 255, 255, 255, 255);
-	crlf_cursor();
-
-	sleep_millis(1500);
-
-	clear_screen(0, 0, 0, 0);
-	print_posx = 0;
-	print_posy = 0;
-
-	print_str((uint8_t *)"Welcome to SemyOS: A system for engineers.", 255, 255, 255, 255);
+	print_str((uint8_t *)"Adding the final spices...", 255, 255, 255, 255);
 	crlf_cursor();
 
 	task_create(shell);
 
 	hda_start_daemon();
+	xhci_start_daemon();
+
+
+	print_str((uint8_t *)"Triying to run system...", 255, 255, 255, 255);
+	crlf_cursor();
+
+	sleep_millis(1000);
+
+	clear_screen(0, 0, 0, 0);
+	print_posx = 0;
+	print_posy = 0;
+
+	print_str((uint8_t *)SEMYOS_LOGO, 255, 215, 0, 255);
+
+	hda_play_notes(intro_theme, sizeof(intro_theme) / sizeof(note_t));
+
+	print_str((uint8_t *)"Welcome to SemyOS: A system for engineers.", 255, 255, 255, 255);
+	crlf_cursor();
+
+	print_str(current_path, 144, 213, 255, 255);
+	put_char('>', 255, 255, 255, 255);
+	print_posx += 8;
 
 	while(1){
 		__asm__ volatile("hlt");

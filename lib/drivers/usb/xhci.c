@@ -122,6 +122,8 @@ int xhci_wait_event(xhci_trb_t *out_trb) {
 	return 0;
 }
 
+void xhci_check_ports(void);
+
 void xhci_setup_rings(void) {
 	xhci.op->config = xhci.max_slots;
 
@@ -191,6 +193,8 @@ void xhci_setup_rings(void) {
 		print_str((uint8_t *)"xHCI Ring timeout!", 255, 55, 55, 255);
 		crlf_cursor();
 	}
+
+	xhci_check_ports();
 }
 
 
@@ -275,4 +279,125 @@ void init_xhci(void) {
 	crlf_cursor();
 
 	xhci_setup_rings();
+}
+
+uint8_t msd_slot_id = 0;
+
+
+typedef struct {
+    uint32_t drop_flags;
+    uint32_t add_flags;
+    uint32_t rsv0[6];
+} __attribute__((packed)) xhci_input_ctrl_ctx_t;
+
+typedef struct {
+    uint32_t field[8];
+} __attribute__((packed)) xhci_slot_ctx_t;
+
+typedef struct {
+    uint32_t field[8];
+} __attribute__((packed)) xhci_ep_ctx_t;
+
+xhci_trb_t *ep0_ring = NULL;
+uint32_t ep0_ring_idx = 0;
+uint8_t ep0_ring_cycle = 1;
+
+void xhci_address_device(uint8_t slot_id, uint8_t port_num, uint8_t speed) {
+    uint32_t ctx_size = (xhci.cap->hccparams1 & (1 << 2)) ? 64 : 32;
+
+    uint32_t dev_ctx_phys = pmm_alloc_block();
+    for (int i = 0; i < 4096 / 4; i++) ((uint32_t *)dev_ctx_phys)[i] = 0;
+    dcbaa[slot_id] = (uint64_t)dev_ctx_phys;
+
+    uint32_t ep0_phys = pmm_alloc_block();
+    for (int i = 0; i < 4096 / 4; i++) ((uint32_t *)ep0_phys)[i] = 0;
+    ep0_ring = (xhci_trb_t *)ep0_phys;
+    ep0_ring_idx = 0;
+    ep0_ring_cycle = 1;
+
+    uint32_t in_ctx_phys = pmm_alloc_block();
+    for (int i = 0; i < 4096 / 4; i++) ((uint32_t *)in_ctx_phys)[i] = 0;
+
+    xhci_input_ctrl_ctx_t *ctrl = (xhci_input_ctrl_ctx_t *)in_ctx_phys;
+    ctrl->add_flags = (1 << 0) | (1 << 1);
+
+    xhci_slot_ctx_t *slot_ctx = (xhci_slot_ctx_t *)(in_ctx_phys + ctx_size);
+    slot_ctx->field[0] = ((uint32_t)speed << 20) | (1 << 27);
+    slot_ctx->field[1] = ((uint32_t)port_num << 16);
+
+    xhci_ep_ctx_t *ep0_ctx = (xhci_ep_ctx_t *)(in_ctx_phys + (ctx_size * 2));
+    uint16_t max_pkt = (speed >= 4) ? 512 : ((speed == 3) ? 64 : 8);
+
+    ep0_ctx->field[1] = (3 << 1) | (4 << 3) | ((uint32_t)max_pkt << 16);
+    ep0_ctx->field[2] = ep0_phys | 1;
+    ep0_ctx->field[3] = 0;
+    ep0_ctx->field[4] = 8;
+
+    uint32_t control = (11 << 10) | ((uint32_t)slot_id << 24);
+    xhci_send_command((uint64_t)in_ctx_phys, 0, control);
+
+    xhci_trb_t res;
+    if (xhci_wait_event(&res)) {
+        uint8_t comp = (res.status >> 24) & 0xFF;
+        print_str((uint8_t *)"Address Device status: ", 55, 255, 55, 255);
+        put_hex(comp, 255, 255, 255, 255);
+        crlf_cursor();
+    }
+}
+
+
+void xhci_check_ports(void) {
+    xhci_port_regs_t *ports = (xhci_port_regs_t *)((uintptr_t)xhci.op + 0x400);
+
+    for (uint8_t i = 0; i < xhci.max_ports; i++) {
+        uint32_t portsc = ports[i].portsc;
+
+        if (portsc & (1 << 0)) { // Dispositivo conectado (CCS = 1)
+            if (!(portsc & (1 << 9))) {
+                ports[i].portsc = (portsc & 0x0E00C3E0) | (1 << 9);
+                sleep_millis(20);
+            }
+
+            ports[i].portsc = (ports[i].portsc & 0x0E00C3E0) | (1 << 4);
+            int timeout = 100;
+            while ((ports[i].portsc & (1 << 4)) && timeout-- > 0) {
+                sleep_millis(1);
+            }
+
+            if (ports[i].portsc & (1 << 1)) {
+                ports[i].portsc = (ports[i].portsc & 0x0E00C200) | (1 << 16);
+
+                xhci_send_command(0, 0, (9 << 10));
+                xhci_trb_t res;
+                if (xhci_wait_event(&res)) {
+                    msd_slot_id = (res.control >> 24) & 0xFF;
+                    print_str((uint8_t *)"USB Port U0 & Slot assigned: ", 55, 255, 55, 255);
+                    put_hex(msd_slot_id, 255, 255, 255, 255);
+                    crlf_cursor();
+                }
+            }
+        }
+    }
+}
+
+static uint32_t last_usb_ping = 0;
+
+void usb_keepalive_task(void) {
+    while (1) {
+        if (driver_xhci && msd_slot_id != 0) {
+            if ((timer_seconds - last_usb_ping) >= 15) {
+                last_usb_ping = timer_seconds;
+                xhci_send_command(0, 0, (23 << 10));
+                xhci_trb_t dummy;
+                xhci_wait_event(&dummy);
+            }
+        }
+        __asm__ volatile("hlt");
+    }
+}
+
+void xhci_start_daemon(void) {
+    if (driver_xhci) {
+        task_create(usb_keepalive_task);
+    }
 }

@@ -72,13 +72,71 @@ void shell_command_reboot(char *args){
 }
 
 
-// COMMAND AUDIOTEST---------------------------------------
+// COMMAND AUDIOTEST-----------------------------------
 void shell_command_audiotest(char *args){
-	static uint16_t tone[48];
-	for(int i = 0; i < 48; i++){
-    	tone[i] = (i < 24) ? 4000 : (uint16_t)-4000;
-	}
-	hda_play_sound(tone, 48, 1000);
+	(void)args;
+
+	hda_play_tone(660, 1000);
+}
+
+
+// COMMAND SLAVA---------------------------------------
+void shell_command_slava(char *args){
+	(void)args;
+
+	note_t ussr_anthem[] = {
+	    {196, 320},
+	    {262, 550},
+	    {196, 430},
+	    {220, 200},
+	    {247, 550},
+	    {165, 320},
+	    {165, 320},
+	    {220, 550},
+	    {196, 430},
+	    {175, 210},
+	    {196, 550},
+	    {131, 320},
+	    {131, 320},
+
+	    {147, 550},
+	    {147, 320},
+	    {165, 320},
+	    {175, 550},
+	    {175, 320},
+	    {196, 320},
+	    {220, 550},
+	    {247, 380},
+	    {262, 250},
+	    {294, 750},
+
+	    {196, 320},
+	    {330, 550},
+	    {294, 430},
+	    {262, 210},
+	    {294, 550},
+	    {247, 320},
+	    {196, 320},
+	    {262, 550},
+	    {247, 430},
+	    {220, 240},
+	    {247, 550},
+	    {165, 310},
+	    {165, 320},
+
+	    {220, 550},
+	    {196, 430},
+	    {175, 240},
+	    {196, 550},
+	    {131, 290},
+	    {131, 320},
+	    {262, 550},
+	    {247, 430},
+	    {220, 190},
+	    {196, 750}
+	};
+
+	hda_play_notes(ussr_anthem, sizeof(ussr_anthem) / sizeof(note_t));
 }
 
 
@@ -261,6 +319,7 @@ void shell_command_ls(char *args){
 
 // COMMANDS LIST-------------------------------------------
 Command commands_list[TOTAL_SHELL_COMMANDS] = {
+	{"slava",     false, 0, shell_command_slava,     "GLORY TO THE URSS!"},
 	{"clear",     false, 0, shell_command_clear,     "Clears the terminal screen."},
 	{"echo",      true,  1, shell_command_echo,      "Prints text in terminal. (echo <text>)"},
 	{"reboot",    false, 0, shell_command_reboot,    "Reboots the system."},

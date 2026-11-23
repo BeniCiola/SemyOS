@@ -53,8 +53,8 @@ cat compifiles/boot.bin compifiles/kernel.bin > semyos.img
 
 kernel_size=$(stat -c %s compifiles/kernel.bin)
 
-if (( kernel_size > 64 * 512 )); then
-	echo "ERROR: kernel exceeds the 32 KiB bootloader limit."
+if (( kernel_size > 128 * 512 )); then
+	echo "ERROR: kernel exceeds the 64 KiB bootloader limit."
 	exit 1
 fi
 

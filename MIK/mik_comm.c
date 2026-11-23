@@ -217,3 +217,25 @@ int mik_chmod(uint32_t inode_id, int mode, bool change){
 
 	return 1;
 }
+
+/*
+void mik_free_chain(uint32_t start_cluster){
+	if(start_cluster == 0 || start_cluster == MIK_CLUSTER_EOF){
+		return -1;
+	}
+
+	uint32_t page_phys = pmm_alloc_block();
+	vmm_map_page(page_phys, page_phys, PTE_PCD | PTE_PRESENT | PTE_RW);
+	uint8_t *buf = (uint8_t *)page_phys;
+
+	mik_lookup(parent_inode_id, )
+
+	uint32_t curr_cluster = inodes[parent_inode_id].first_cluster;
+
+	while(curr != MIK_CLUSTER_EOF){
+
+	}
+
+	pmm_free_block(page_phys);
+}
+*/

@@ -80,7 +80,7 @@ align 4
 dap:
     db 0x10
     db 0
-    dw 64
+    dw 128
     dw 0x8000
     dw 0x0000
     dq 1
