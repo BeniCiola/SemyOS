@@ -236,8 +236,6 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 	print_str((uint8_t *)"Adding the final spices...", 255, 255, 255, 255);
 	crlf_cursor();
 
-	task_create(shell);
-
 	hda_start_daemon();
 	xhci_start_daemon();
 
@@ -258,9 +256,7 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 	print_str((uint8_t *)"Welcome to SemyOS: A system for engineers.", 255, 255, 255, 255);
 	crlf_cursor();
 
-	print_str(current_path, 144, 213, 255, 255);
-	put_char('>', 255, 255, 255, 255);
-	print_posx += 8;
+	task_create(shell);
 
 	while(1){
 		__asm__ volatile("hlt");
