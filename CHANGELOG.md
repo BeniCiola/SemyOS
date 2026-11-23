@@ -55,6 +55,13 @@
 - According to the treaty, MIKFS is and will be the first and last file system of SemyOS.
 - There is no replacement for MIKFS.
 
+## Version 0.2.1
+
+### Added
+- Melodies of sound.
+- Audio and visual introduction.
+- Possibility of remove files and directories.
+
 
 ## Español
 
@@ -107,3 +114,10 @@
 - MIKFS cuenta con una sola estructura para directorios y archivos, siguiendo la ley Everything Is A File.
 - De acuerdo al tratado, MIKFS es y será el primer y último sistema de archivos de SemyOS.
 - No hay remplazo para MIKFS.
+
+## Versión 0.2.1
+
+### Añadido
+- Melodías de sonido.
+- Introducción sonora y visual.
+- Posibilidad de borrar archivos y directorios.

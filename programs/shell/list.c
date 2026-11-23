@@ -1,4 +1,4 @@
-#define TOTAL_SHELL_COMMANDS 13
+#define TOTAL_SHELL_COMMANDS 14
 
 typedef void (*CommandFunc)(char *args);
 
@@ -158,6 +158,70 @@ void shell_command_mkdir(char *args){
 }
 
 
+// COMMAND TOUCH-------------------------------------------
+void shell_command_touch(char *args){
+	mik_create(current_dir_inode, args, MIK_TYPE_FILE, MIK_PERM_WRITE | MIK_PERM_READ);
+}
+
+
+// COMMAND RM----------------------------------------------
+void shell_command_rm(char *args){
+	uint8_t i = 0;
+
+	char type;
+	type = args[i];
+
+	if(args[i + 1] != ' ' || (type != 'f' && type != 'd')){
+		crlf_cursor();
+		print_str((uint8_t *)"Error [invalid type]: Only 'f' and 'd'.", 255, 50, 50, 255);
+		return;
+	}
+
+	i += 2;
+
+	char name[28];
+	uint8_t c = 0; //Uff, C reference.
+
+	for(; args[i] != 0; i++){
+		if(c > 27){
+			crlf_cursor();
+			print_str((uint8_t *)"Error [size]: The name is too long.", 255, 50, 50, 255);
+			return;
+		}
+
+		name[c] = args[i];
+		c++; //Uff, C++ reference.
+	} name[c] = 0;
+
+	bool is_dir = (type == 'd') ? true : false;
+
+	int result = mik_delete(current_dir_inode, name, is_dir);
+
+	switch (result){
+		case 1:
+			break;
+		case -1:
+			crlf_cursor();
+			print_str((uint8_t *)"No no, you cannot remove the root directory.", 255, 50, 50, 255);
+			break;
+		case -2:
+			crlf_cursor();
+			print_str((uint8_t *)"The target doesn't exist.", 255, 50, 50, 255);
+			break;
+		case -3:
+			crlf_cursor();
+			print_str((uint8_t *)"The type doesn't match with the reality.", 255, 50, 50, 255);
+			break;
+		case -4:
+			crlf_cursor();
+			print_str((uint8_t *)"The directory still has content.", 255, 50, 50, 255);
+			break;
+		default:
+			break;
+	}
+}
+
+
 // COMMAND CD----------------------------------------------
 void shell_command_cd(char *args){
 	uint32_t page_phys = pmm_alloc_block();
@@ -202,12 +266,6 @@ void shell_command_cd(char *args){
 	}
 
 	pmm_free_block(page_phys);
-}
-
-
-// COMMAND TOUCH-------------------------------------------
-void shell_command_touch(char *args){
-	mik_create(current_dir_inode, args, MIK_TYPE_FILE, MIK_PERM_WRITE | MIK_PERM_READ);
 }
 
 
@@ -327,6 +385,7 @@ Command commands_list[TOTAL_SHELL_COMMANDS] = {
 	{"ishere",    true,  1, shell_command_ishere,    "'Is this file/directory in this directory?' (ishere <name.ext>)"},
 	{"mkdir",     true,  1, shell_command_mkdir,     "Creates a new directory. (mkdir <name>)"},
 	{"touch",     true,  1, shell_command_touch,     "Creates a new file. (touch <name>)"},
+	{"rm",        true,  2, shell_command_rm,        "Remove files and directories. (rm <f/d> <name>)"},
 	{"cd",        true,  1, shell_command_cd,        "Changes the current directory. (cd <dir>)"},
 	{"chmod",     true,  3, shell_command_chmod,     "Changes file permissions. (chmod <file> <perm> <state>)"},
 	{"ls",        false, 0, shell_command_ls,        "Lists directory contents."},

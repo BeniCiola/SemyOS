@@ -218,8 +218,8 @@ int mik_chmod(uint32_t inode_id, int mode, bool change){
 	return 1;
 }
 
-/*
-void mik_free_chain(uint32_t start_cluster){
+
+int mik_free_chain(uint32_t start_cluster){
 	if(start_cluster == 0 || start_cluster == MIK_CLUSTER_EOF){
 		return -1;
 	}
@@ -228,14 +228,113 @@ void mik_free_chain(uint32_t start_cluster){
 	vmm_map_page(page_phys, page_phys, PTE_PCD | PTE_PRESENT | PTE_RW);
 	uint8_t *buf = (uint8_t *)page_phys;
 
-	mik_lookup(parent_inode_id, )
+	uint32_t curr_cluster = start_cluster;
 
-	uint32_t curr_cluster = inodes[parent_inode_id].first_cluster;
+	while(curr_cluster != MIK_CLUSTER_EOF && curr_cluster != 0){
+		mik_read_block(curr_cluster, buf);
 
-	while(curr != MIK_CLUSTER_EOF){
+		mik_cluster_t *c = (mik_cluster_t *)buf;
+		uint32_t next = c->next_cluster;
 
+		mik_read_block(mik_sb->bitmap_start, buf);
+
+		buf[curr_cluster / 8] &= ~(1 << (curr_cluster % 8));
+
+		mik_write_block(mik_sb->bitmap_start, buf);
+
+		curr_cluster = next;
 	}
 
 	pmm_free_block(page_phys);
 }
-*/
+
+int mik_delete(uint32_t parent_inode_id, const char *name, bool is_dir){
+	int target = mik_lookup(parent_inode_id, name);
+
+	if(target == 0){
+		return -1;
+	} else if(target < 0){
+		return -2;
+	}
+
+	uint32_t page_phys = pmm_alloc_block();
+	vmm_map_page(page_phys, page_phys, PTE_PCD | PTE_PRESENT | PTE_RW);
+	uint8_t *buf = (uint8_t *)page_phys;
+
+	mik_read_block(mik_sb->inode_table_start, buf);
+	mik_inode_t *inodes = (mik_inode_t *)buf;
+
+	uint8_t expected_type = is_dir ? MIK_TYPE_DIR : MIK_TYPE_FILE;
+
+	if(inodes[target].type != expected_type){
+		pmm_free_block(page_phys);
+		return -3;
+	}
+
+	uint32_t target_cluster = inodes[target].first_cluster;
+
+	uint32_t curr_cluster;
+
+	if(is_dir){
+		curr_cluster = inodes[target].first_cluster;
+
+		while(curr_cluster != MIK_CLUSTER_EOF){
+			mik_read_block(curr_cluster, buf);
+
+			mik_cluster_t *c = (mik_cluster_t *)buf;
+			mik_dirent_t *entries = (mik_dirent_t *)c->data;
+
+			for(uint32_t i = 0; i < 127; i++){
+				if(entries[i].inode_id != 0){
+					pmm_free_block(page_phys);
+
+					return -4;
+				}
+			}
+			curr_cluster = c->next_cluster;
+		}
+	}
+
+	mik_read_block(mik_sb->inode_table_start, buf);
+
+	curr_cluster = inodes[parent_inode_id].first_cluster;
+
+	bool removed = false;
+
+	while(curr_cluster != MIK_CLUSTER_EOF && !removed){
+		mik_read_block(curr_cluster, buf);
+
+		mik_cluster_t *c = (mik_cluster_t *)buf;
+		mik_dirent_t *entries = (mik_dirent_t *)c->data;
+
+		for(uint32_t i = 0; i < 127; i++){
+			if(entries[i].inode_id == (uint32_t)target){
+				entries[i].inode_id = 0;
+				for(uint32_t k = 0; k < 28; k++) entries[i].name[k] = 0;
+
+				mik_write_block(curr_cluster, buf);
+
+				removed = true;
+				break;
+			}
+		}
+		curr_cluster = c->next_cluster;
+	}
+
+	mik_free_chain(target_cluster);
+
+	mik_read_block(mik_sb->inode_table_start, buf);
+
+	inodes[target].type = MIK_TYPE_FREE;
+	inodes[target].size = 0;
+	inodes[target].first_cluster = 0;
+	inodes[target].links = 0;
+
+	inodes[parent_inode_id].size -= sizeof(mik_dirent_t);
+
+	mik_write_block(mik_sb->inode_table_start, buf);
+
+	pmm_free_block(page_phys);
+
+	return 1;
+}
