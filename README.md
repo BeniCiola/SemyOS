@@ -1,6 +1,6 @@
 # SemyOS - Semyorka Operating System
 
-## We (I'm only one) have for you:
+## We (now we are two) have for you:
 
 ### Type of system
 - System architecture x86, 32-bits.
