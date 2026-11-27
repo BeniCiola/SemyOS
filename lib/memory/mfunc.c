@@ -58,3 +58,19 @@ void kfree(void* ptr){
     BlockHeader* block = ((BlockHeader*)ptr) - 1;
     block->is_free = 1;
 }
+
+void* memcpy(void *dest, const void *src, size_t n){
+	uint8_t *d = (uint8_t *)dest;
+	const uint8_t *s = (const uint8_t *)src;
+
+	while(n >= 4){
+		*(uint32_t *)d = *(const uint32_t *)s;
+		d += 4; s += 4; n -= 4;
+	}
+
+	while(n > 0){
+		*d++ = *s++; n--;
+	}
+
+	return dest;
+}

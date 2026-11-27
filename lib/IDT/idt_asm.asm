@@ -9,9 +9,11 @@ idt_flush:
 
 global timer_handler_asm
 global keyboard_handler_asm
+global syscall_handler_asm
+
 extern timer_handler
 extern keyboard_handler
-
+extern syscall_handler
 
 timer_handler_asm:
 	pushfd
@@ -27,4 +29,17 @@ keyboard_handler_asm:
 	call keyboard_handler
 	popad
 	popfd
+	iretd
+
+syscall_handler_asm:
+	pushfd
+	pushad
+	push esp
+
+	call syscall_handler
+
+	pop eax
+	popad
+	popfd
+
 	iretd

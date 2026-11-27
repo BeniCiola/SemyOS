@@ -1,4 +1,4 @@
-#define TOTAL_SHELL_COMMANDS 14
+#define TOTAL_SHELL_COMMANDS 16
 
 typedef void (*CommandFunc)(char *args);
 
@@ -179,11 +179,11 @@ void shell_command_rm(char *args){
 
 	i += 2;
 
-	char name[28];
+	char name[29];
 	uint8_t c = 0; //Uff, C reference.
 
 	for(; args[i] != 0; i++){
-		if(c > 27){
+		if(c >= 28){
 			crlf_cursor();
 			print_str((uint8_t *)"Error [size]: The name is too long.", 255, 50, 50, 255);
 			return;
@@ -222,17 +222,195 @@ void shell_command_rm(char *args){
 }
 
 
+// COMMAND MV----------------------------------------------
+void shell_command_mv(char *args){
+	char thing_name[29];
+	char rout_dest[sizeof(current_path)];
+
+	uint16_t i = 0;
+
+	for(; args[i] != ' '; i++){
+		if(i >= 28){
+			crlf_cursor();
+			print_str((uint8_t *)"Error [size]: The thing name is too long.", 255, 50, 50, 255);
+			return;
+		}
+		thing_name[i] = args[i];
+	}
+	thing_name[i] = 0;
+
+	int target_thing = mik_lookup(current_dir_inode, thing_name);
+	if(target_thing == 0){
+		crlf_cursor();
+		print_str((uint8_t *)"Error [mv]: Cannot move the root dir.", 255, 50, 50, 255);
+		return;
+	} else if(target_thing < 0){
+		crlf_cursor();
+		print_str((uint8_t *)"Error: The thing not exist here.", 255, 50, 50, 255);
+		return;
+	}
+
+	uint16_t k = 0;
+	i++;
+
+	for(; args[i] != 0; i++){
+		if(k >= sizeof(current_path) - 1){
+			crlf_cursor();
+			print_str((uint8_t *)"Error [size]: The rout is too long.", 255, 50, 50, 255);
+			return;
+		}
+		rout_dest[k] = args[i];
+		k++;
+	}
+	rout_dest[k] = 0;
+
+	char target_dir[29];
+	uint32_t actual_inode = current_dir_inode;
+	i = 0;
+
+	uint32_t page_phys = pmm_alloc_block();
+	vmm_map_page(page_phys, page_phys, PTE_PCD | PTE_PRESENT | PTE_RW);
+	uint8_t *buf = (uint8_t *)page_phys;
+
+	mik_inode_t inode;
+
+	while(rout_dest[i] != 0){
+		k = 0;
+
+		for(; rout_dest[i] != '/' && rout_dest[i] != 0; i++){
+			if(k >= 28){
+				crlf_cursor();
+				print_str((uint8_t *)"Error [Size]: Some dir has a too long name.", 255, 50, 50, 255);
+				pmm_free_block(page_phys);
+				return;
+			}
+			target_dir[k] = rout_dest[i];
+			k++;
+		}
+		target_dir[k] = 0;
+
+		if(rout_dest[i] == '/') i++;
+
+		if(k == 0) continue;
+
+		mik_read_inode(actual_inode, &inode, buf);
+
+		if(strcmp(target_dir, "..")){
+			actual_inode = inode.parent_inode;
+			continue;
+		}
+
+		int target = mik_lookup(actual_inode, target_dir);
+		if(target < 0){
+			crlf_cursor();
+			print_str((uint8_t *)"Error: Some dir was not found (or simply is not a dir).", 255, 50, 50, 255);
+			pmm_free_block(page_phys);
+			return;
+		}
+
+		actual_inode = target;
+	}
+
+	if(actual_inode == current_dir_inode || actual_inode == (uint32_t)target_thing){
+		crlf_cursor();
+		print_str((uint8_t *)"Error [mv]: Invalid destination directory.", 255, 50, 50, 255);
+		pmm_free_block(page_phys);
+		return;
+	}
+
+	mik_read_inode(actual_inode, &inode, buf);
+	if(inode.type != MIK_TYPE_DIR){
+		crlf_cursor();
+		print_str((uint8_t *)"Error [type]: The destination is not a dir.", 255, 50, 50, 255);
+		pmm_free_block(page_phys);
+		return;
+	}
+
+	if(mik_lookup(actual_inode, thing_name) != -1){
+		crlf_cursor();
+		print_str((uint8_t *)"Error [mv]: Already exists in destination.", 255, 50, 50, 255);
+		pmm_free_block(page_phys);
+		return;
+	}
+
+	uint32_t curr_cluster = inode.first_cluster;
+	bool inserted = false;
+
+	while(curr_cluster != MIK_CLUSTER_EOF && !inserted){
+		mik_read_block(curr_cluster, buf);
+		mik_cluster_t *c = (mik_cluster_t *)buf;
+		mik_dirent_t *entries = (mik_dirent_t *)c->data;
+
+		for(uint32_t j = 0; j < 127; j++){
+			if(entries[j].inode_id == 0){
+				entries[j].inode_id = target_thing;
+				uint32_t len = strsize(thing_name);
+				for(uint32_t m = 0; m < 28; m++){
+					entries[j].name[m] = (m < len) ? thing_name[m] : 0;
+				}
+				mik_write_block(curr_cluster, buf);
+				inserted = true;
+				break;
+			}
+		}
+		curr_cluster = c->next_cluster;
+	}
+
+	if(!inserted){
+		crlf_cursor();
+		print_str((uint8_t *)"Error [mv]: Destination directory is full.", 255, 50, 50, 255);
+		pmm_free_block(page_phys);
+		return;
+	}
+
+	mik_read_inode(actual_inode, &inode, buf);
+	inode.size += sizeof(mik_dirent_t);
+	mik_write_inode(actual_inode, &inode, buf);
+
+	mik_read_inode(current_dir_inode, &inode, buf);
+	curr_cluster = inode.first_cluster;
+	bool removed = false;
+
+	while(curr_cluster != MIK_CLUSTER_EOF && !removed){
+		mik_read_block(curr_cluster, buf);
+		mik_cluster_t *c = (mik_cluster_t *)buf;
+		mik_dirent_t *entries = (mik_dirent_t *)c->data;
+
+		for(uint32_t j = 0; j < 127; j++){
+			if(entries[j].inode_id == (uint32_t)target_thing){
+				entries[j].inode_id = 0;
+				for(uint32_t m = 0; m < 28; m++) entries[j].name[m] = 0;
+				mik_write_block(curr_cluster, buf);
+				removed = true;
+				break;
+			}
+		}
+		curr_cluster = c->next_cluster;
+	}
+
+	mik_read_inode(current_dir_inode, &inode, buf);
+	inode.size -= sizeof(mik_dirent_t);
+	mik_write_inode(current_dir_inode, &inode, buf);
+
+	mik_read_inode(target_thing, &inode, buf);
+	inode.parent_inode = actual_inode;
+	mik_write_inode(target_thing, &inode, buf);
+
+	pmm_free_block(page_phys);
+}
+
+
 // COMMAND CD----------------------------------------------
 void shell_command_cd(char *args){
 	uint32_t page_phys = pmm_alloc_block();
 	vmm_map_page(page_phys, page_phys, PTE_PCD | PTE_PRESENT | PTE_RW);
 	uint8_t *buf = (uint8_t *)page_phys;
 
-	mik_read_block(mik_sb->inode_table_start, buf);
-	mik_inode_t *inodes = (mik_inode_t *)buf;
+	mik_inode_t inode;
+	mik_read_inode(current_dir_inode, &inode, buf);
 
 	if(strcmp(args, "..")){
-		current_dir_inode = inodes[current_dir_inode].parent_inode;
+		current_dir_inode = inode.parent_inode;
 		pmm_free_block(page_phys);
 
 		uint32_t len = strsize(current_path);
@@ -248,10 +426,12 @@ void shell_command_cd(char *args){
 
 
 	int target = mik_lookup(current_dir_inode, args);
+	mik_read_inode(target, &inode, buf);
+
 	if(target == -1){
 		crlf_cursor();
 		print_str((uint8_t *)"Directory not found.", 255, 55, 55, 255);
-	} else if(inodes[target].type != MIK_TYPE_DIR){
+	} else if(inode.type != MIK_TYPE_DIR){
 		crlf_cursor();
 		print_str((uint8_t *)"Not a directory.", 255, 55, 55, 255);
 	} else {
@@ -271,14 +451,14 @@ void shell_command_cd(char *args){
 
 // COMMAND CHMOD-------------------------------------------
 void shell_command_chmod(char *args){
-	char name[28];
+	char name[29];
 	char mode;
 	char change;
 
 	uint8_t i = 0;
 
 	for(; args[i] != ' '; i++){
-		if(i > 27){
+		if(i >= 28){
 			crlf_cursor();
 			print_str((uint8_t *)"Error [size]: The name is too long.", 255, 50, 50, 255);
 
@@ -328,6 +508,45 @@ void shell_command_chmod(char *args){
 	else var2 = false;
 
 	mik_chmod(id, var1, var2);
+}
+
+
+// COMMAND IGNITE---------------------------------------------
+void shell_command_ignite(char *args){
+	char name[29];
+
+	uint8_t i = 0;
+
+	for(; args[i] != 0; i++){
+		if(i >= 28){
+			crlf_cursor();
+			print_str((uint8_t *)"Error [size]: The name is too long.", 255, 50, 50, 255);
+
+			return;
+		}
+
+		name[i] = args[i];
+	} name[i] = 0;
+
+	task_t *shell_task = current_task;
+
+	task_t *proc = sexy_load(name);
+
+	if(proc == NULL){
+		return;
+	}
+
+	crlf_cursor();
+
+	preempt_disable();
+	proc->parent = shell_task;
+
+	current_task->state = TASK_BLOCKED;
+	preempt_enable();
+
+	while(current_task->state == TASK_BLOCKED){
+		__asm__ volatile("sti; hlt");
+	}
 }
 
 
@@ -385,9 +604,11 @@ Command commands_list[TOTAL_SHELL_COMMANDS] = {
 	{"ishere",    true,  1, shell_command_ishere,    "'Is this file/directory in this directory?' (ishere <name.ext>)"},
 	{"mkdir",     true,  1, shell_command_mkdir,     "Creates a new directory. (mkdir <name>)"},
 	{"touch",     true,  1, shell_command_touch,     "Creates a new file. (touch <name>)"},
+	{"mv",        true,  2, shell_command_mv,        "Move things to another directories. (mv <thing_here> <destine_rout>)"},
 	{"rm",        true,  2, shell_command_rm,        "Remove files and directories. (rm <f/d> <name>)"},
 	{"cd",        true,  1, shell_command_cd,        "Changes the current directory. (cd <dir>)"},
 	{"chmod",     true,  3, shell_command_chmod,     "Changes file permissions. (chmod <file> <perm> <state>)"},
+	{"ignite",    true,  1, shell_command_ignite,    "Runs a .sexy executable. (ignite <program.sexy>)"},
 	{"ls",        false, 0, shell_command_ls,        "Lists directory contents."},
 	{"help",      false, 0, shell_command_help,      "Displays the list of available commands."},
 	{NULL,        false, 0, NULL,                    NULL}

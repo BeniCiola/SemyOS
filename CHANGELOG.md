@@ -62,6 +62,12 @@
 - Audio and visual introduction.
 - Possibility of remove files and directories.
 
+## Version 0.2.2
+
+### Added
+- SEXY executable format (Semyorka EXecutable for Yadro).
+- Injector of .sexy files in the file system.
+
 
 ## Español
 
@@ -121,3 +127,9 @@
 - Melodías de sonido.
 - Introducción sonora y visual.
 - Posibilidad de borrar archivos y directorios.
+
+## Versión 0.2.1
+
+### Añadido
+- Formato de ejecutables SEXY (Semyorka EXecutable for Yadro).
+- Inyector de archivos .sexy al sistema de archivos.

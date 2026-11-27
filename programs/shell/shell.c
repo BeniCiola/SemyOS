@@ -3,8 +3,7 @@ void shell_command_executer(Command command, uint8_t args_number, char *args){
 
 	if(args != NULL){
 		if(args_number != command.args_num){
-			print_posy += 16;
-			print_posx = 0;
+			crlf_cursor();
 			print_str(invalid_num_args, 255, 50, 50, 255);
 
 			kfree(args);
@@ -18,8 +17,7 @@ void shell_command_executer(Command command, uint8_t args_number, char *args){
 			command.function(NULL);
 			kfree(args);
 	} else {
-		print_posy += 16;
-		print_posx = 0;
+		crlf_cursor();
 		print_str(invalid_num_args, 255, 50, 50, 255);
 
 		kfree(args);
@@ -89,8 +87,7 @@ void shell_command_searcher(char *buffer){
 
 		list_i++;
 	}
-	print_posx = 0;
-	print_posy += 16;
+	crlf_cursor();
 	print_str(commandnt, 255, 50, 50, 255);
 
 	return;
@@ -136,8 +133,7 @@ void shell(void){
 
 			buffer_index = 0;
 
-			print_posx = 0;
-			print_posy += 16;
+			crlf_cursor();
 
 			print_str(current_path, 144, 213, 255, 255);
 			put_char('>', 255, 255, 255, 255);
@@ -175,8 +171,7 @@ void shell(void){
 			print_posx += 8;
 
 			if(print_posx >= 1024){
-				print_posy += 16;
-				print_posx = 0;
+				crlf_cursor();
 			}
 		}
 		put_char('_', 255, 255, 255, 255);

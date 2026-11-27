@@ -35,6 +35,7 @@ typedef struct __attribute__((packed)) {
 	uint32_t next_cluster;
 } mik_cluster_t;
 
+
 typedef struct __attribute__((packed)) {
 	uint8_t  type;
 	uint8_t  perms;
@@ -49,6 +50,14 @@ typedef struct __attribute__((packed)) {
 	uint32_t inode_id;
 	char     name[28];
 } mik_dirent_t;
+
+
+#define MIK_INODE_BLOCKS 4
+#define MIK_INODES_PER_BLOCK (MIK_BLOCK_SIZE / sizeof(mik_inode_t))
+
+#define MIK_DISK_SIZE_MB 64
+#define MIK_TOTAL_BLOCKS (MIK_DISK_SIZE_MB * 256)
+
 
 static mik_superblock_t *mik_sb = NULL;
 static uint8_t mik_mounted = 0;
@@ -67,4 +76,17 @@ int mik_write_block(uint32_t block_idx, void *buffer) {
 		return ahci_write(boot_sata_disk, lba, MIK_SECTORS_PER_BLOCK, buffer);
 	}
 	return 0;
+}
+
+void mik_read_inode(uint32_t inode_id, mik_inode_t *out, uint8_t *scratch_buf){
+	uint32_t block = mik_sb->inode_table_start + (inode_id / MIK_INODES_PER_BLOCK);
+	mik_read_block(block, scratch_buf);
+	*out = ((mik_inode_t *)scratch_buf)[inode_id % MIK_INODES_PER_BLOCK];
+}
+
+void mik_write_inode(uint32_t inode_id, const mik_inode_t *in, uint8_t *scratch_buf){
+	uint32_t block = mik_sb->inode_table_start + (inode_id / MIK_INODES_PER_BLOCK);
+	mik_read_block(block, scratch_buf);
+	((mik_inode_t *)scratch_buf)[inode_id % MIK_INODES_PER_BLOCK] = *in;
+	mik_write_block(block, scratch_buf);
 }

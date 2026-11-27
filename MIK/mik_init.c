@@ -10,24 +10,28 @@ int mik_format(void){
 	mik_superblock_t *sb = (mik_superblock_t *)buf;
 
 	sb->magic = MIK_MAGIC;
-	sb->total_blocks = 2048;
+	sb->total_blocks = MIK_TOTAL_BLOCKS;
 	sb->bitmap_start = 1;
 	sb->bitmap_blocks = 1;
 	sb->inode_table_start = 2;
-	sb->inode_count = 128;
-	sb->data_start = 3;
+	sb->inode_count = MIK_INODE_BLOCKS * 128;
+	sb->data_start = sb->inode_table_start + MIK_INODE_BLOCKS;
+
+	uint32_t data_start = sb->data_start;
 
 	if(!mik_write_block(0, buf)){
 		pmm_free_block(page_phys);
 		return 0;
 	}
 
-
 	for(uint16_t i = 0; i <= 4095; i++){
 		buf[i] = 0;
 	}
 
-	buf[0] = 0x0F;
+	for (uint32_t b = 0; b <= data_start; b++) {
+	    buf[b / 8] |= (1 << (b % 8));
+	}
+
 
 	if(!mik_write_block(1, buf)){
 		pmm_free_block(page_phys);
@@ -45,7 +49,7 @@ int mik_format(void){
 	inodes[0].perms = MIK_PERM_READ | MIK_PERM_WRITE | MIK_PERM_EXEC;
 	inodes[0].links = 1;
 	inodes[0].size = 0;
-	inodes[0].first_cluster = 3;
+	inodes[0].first_cluster = data_start;
 	inodes[0].parent_inode = 0;
 
 	if(!mik_write_block(2, buf)){
@@ -58,11 +62,15 @@ int mik_format(void){
 		buf[i] = 0;
 	}
 
+	for (uint32_t b = 1; b < MIK_INODE_BLOCKS; b++){
+		mik_write_block(2 + b, buf);
+	}
+
 	mik_cluster_t *root_data = (mik_cluster_t *)buf;
 
 	root_data->next_cluster = MIK_CLUSTER_EOF;
 
-	if(!mik_write_block(3, buf)){
+	if(!mik_write_block(data_start, buf)){
 		pmm_free_block(page_phys);
 		return 0;
 	}

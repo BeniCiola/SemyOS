@@ -1,5 +1,7 @@
 #include "idt.h"
 
+extern void syscall_handler_asm(void);
+
 idt_entry_t idt[256];
 idt_ptr_t idt_reg;
 
@@ -30,6 +32,7 @@ void init_idt(void){
 
 	idt_set_gate(32, (uint32_t)timer_handler_asm, 0x08, 0x8E);
 	idt_set_gate(33, (uint32_t)keyboard_handler_asm, 0x08, 0x8E);
+	idt_set_gate(0x80, (uint32_t)syscall_handler_asm, 0x08, 0x8E);
 
 	idt_flush((uint32_t)&idt_reg);
 

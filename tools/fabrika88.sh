@@ -14,7 +14,7 @@ nasm -f bin boot/zagruzchik.asm -o compifiles/boot.bin
 # Kernel: Assembly
 mapfile -d '' asm_files < <(
 	find . \
-		-type d \( -name .git -o -name compifiles \) -prune -o \
+		-type d \( -name .git -o -name compifiles -o -name programs \) -prune -o \
 		-type f -name '*.asm' \
 		! -path './boot/zagruzchik.asm' \
 		-print0 | sort -z
@@ -58,9 +58,26 @@ if (( kernel_size > 128 * 512 )); then
 	exit 1
 fi
 
-truncate -s $((20480 * 512)) semyos.img
+truncate -s 65M semyos.img
 
 echo "Done."
+
+echo "Initializing first boot..."
+
+timeout -s KILL 3s qemu-system-i386 -m 256M \
+    -drive file=semyos.img,format=raw,index=0,media=disk \
+    -drive id=sata1,file=semyos.img,format=raw,if=none,file.locking=off \
+    -device ahci,id=ahci \
+    -device ide-hd,drive=sata1,bus=ahci.0 \
+    -audiodev none,id=none \
+    -device intel-hda \
+    -device hda-output,audiodev=none \
+    -display none && true || [ $? -eq 124 ]
+
+echo "Injecting .sexy programs..."
+
+gcc tools/injector.c -o compifiles/injector
+./compifiles/injector semyos.img programs/SEXY/
 
 executer_pro_max() {
 	read -p "Run Semyorka image? (Y/n): " execute

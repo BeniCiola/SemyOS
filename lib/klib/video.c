@@ -24,9 +24,28 @@ int16_t print_posx = 0;
 int16_t print_posy = 0;
 
 
+void scroll_screen(void){
+	uint32_t row_bytes = 16 * fb.pitch;
+	uint32_t move_bytes = (fb.height - 16) * fb.pitch;
+
+	memcpy((void *)framebuffer, (uint8_t *)framebuffer + row_bytes, move_bytes);
+
+	uint32_t *last_row = (uint32_t *)((uint8_t *)framebuffer + move_bytes);
+	uint32_t count = row_bytes / 4;
+
+	for(uint32_t i = 0; i < count; i++){
+		last_row[i] = 0;
+	}
+}
+
 void crlf_cursor(void){
 	print_posx = 0;
 	print_posy += 16;
+
+	if((print_posy + 16) > fb.height){
+		scroll_screen();
+		print_posy -= 16;
+	}
 }
 
 void video_init(uint8_t bpp){

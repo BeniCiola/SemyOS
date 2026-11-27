@@ -1,4 +1,3 @@
-
 #define STACK_SIZE 4096
 
 typedef enum {
@@ -17,6 +16,7 @@ typedef struct task {
 
 	uint8_t *stack;
 	struct task *next;
+	struct task *parent;
 } task_t;
 
 extern void context_switch(uint32_t **old_esp, uint32_t *new_esp);
@@ -33,12 +33,12 @@ static uint32_t next_task_id = 1;
 static volatile uint32_t preempt_count = 0;
 static int scheduler_ready = 0;
 
-static void task_bootstrap(void);
-static void task_exit(void);
-static void task_reap_terminated(void);
+void task_bootstrap(void);
+void task_exit(void);
+void task_reap_terminated(void);
 
 
-static void task_prepare_stack(task_t *task)
+void task_prepare_stack(task_t *task)
 {
 	uintptr_t top = (uintptr_t)(task->stack + STACK_SIZE);
 	uint32_t *sp = (uint32_t *)top;
@@ -55,7 +55,7 @@ static void task_prepare_stack(task_t *task)
 }
 
 
-static void task_reap_terminated(void)
+void task_reap_terminated(void)
 {
 	preempt_disable();
 
@@ -115,13 +115,15 @@ task_t *task_create(void (*entry)(void))
 	task->next = task_head->next;
 	task_head->next = task;
 
+	task->parent = NULL;
+
 	preempt_enable();
 
 	return task;
 }
 
 
-static void task_bootstrap(void)
+void task_bootstrap(void)
 {
 	__asm__ volatile ("sti");
 
@@ -131,11 +133,15 @@ static void task_bootstrap(void)
 }
 
 
-static void task_exit(void)
+void task_exit(void)
 {
 	preempt_disable();
 
 	current_task->state = TASK_TERMINATED;
+
+	if(current_task->parent != NULL){
+		current_task->parent->state = TASK_READY;
+	}
 
 	preempt_enable();
 

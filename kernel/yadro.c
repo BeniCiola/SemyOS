@@ -31,6 +31,18 @@
 	void hda_comm_init(uint32_t bar0_virt_address, uint32_t oss_offset);
 	void hda_init_corb_rirb(uint32_t bar0_virt_address);
 
+	void *memcpy(void *dest, const void *src, size_t n);
+
+	struct framebuffer_info {
+		uint32_t address;
+		uint16_t pitch;
+		uint16_t width;
+		uint16_t height;
+		uint8_t  bpp;
+	};
+
+	struct framebuffer_info fb;
+	volatile uint8_t *framebuffer = NULL;
 
 // Kernel Libraries
 #define FONT8x16_IMPLEMENTATION
@@ -76,6 +88,11 @@
 #include "../MIK/mik_comm.c"
 #include "../MIK/mik_handlers.c"
 
+// SEXY
+#include "../SEXY/sexy.h"
+#include "../SEXY/sexy_syscalls.c"
+#include "../SEXY/sexy_loader.c"
+
 // Programs
 #include "../programs/shell/list.c"
 #include "../programs/shell/shell.c"
@@ -98,18 +115,8 @@ static void bss_init(void){
 
 #define VBE_INFO_ADDR 0x7E00
 
-struct framebuffer_info {
-	uint32_t address;
-	uint16_t pitch;
-	uint16_t width;
-	uint16_t height;
-	uint8_t  bpp;
-};
-
 struct framebuffer_info get_framebuffer_info(void){
 	volatile uint8_t *vbe = (volatile uint8_t *)VBE_INFO_ADDR;
-
-	struct framebuffer_info fb;
 
 	fb.pitch = *(volatile uint16_t *)(vbe + 0x10);
 	fb.width = *(volatile uint16_t *)(vbe + 0x12);
@@ -126,7 +133,7 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 	bss_init();
 	init_idt();
 
-	struct framebuffer_info fb = get_framebuffer_info();
+	get_framebuffer_info();
 
 	if(fb.address == 0 || fb.pitch == 0 || fb.width == 0 || fb.height == 0) {
 		while(1) {
@@ -262,3 +269,5 @@ __attribute__((section(".init"))) void _zazhiganiye(void){
 		__asm__ volatile("hlt");
 	}
 }
+
+// From each according to his ability; To each according to his work.

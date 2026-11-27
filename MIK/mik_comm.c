@@ -39,12 +39,12 @@ int mik_alloc_inode(void){
 	vmm_map_page(page_phys, page_phys, PTE_PCD | PTE_PRESENT | PTE_RW);
 	uint8_t *buf = (uint8_t *)page_phys;
 
-	mik_read_block(mik_sb->inode_table_start, buf);
-
-	mik_inode_t *inodes = (mik_inode_t *)buf;
+	mik_inode_t inode;
 
 	for(uint32_t i = 1; i < mik_sb->inode_count; i++){
-		if (inodes[i].type == MIK_TYPE_FREE) {
+		mik_read_inode(i, &inode, buf);
+
+		if (inode.type == MIK_TYPE_FREE) {
 			pmm_free_block(page_phys);
 			return i;
 		}
@@ -59,16 +59,15 @@ int mik_lookup(uint32_t dir_inode_id, const char *name){
 	vmm_map_page(page_phys, page_phys, PTE_PCD | PTE_PRESENT | PTE_RW);
 	uint8_t *buf = (uint8_t *)page_phys;
 
-	mik_read_block(mik_sb->inode_table_start, buf);
+	mik_inode_t inode;
+	mik_read_inode(dir_inode_id, &inode, buf);
 
-	mik_inode_t *inodes = (mik_inode_t *)buf;
-
-	if(inodes[dir_inode_id].type != MIK_TYPE_DIR){
+	if(inode.type != MIK_TYPE_DIR){
 		pmm_free_block(page_phys);
 		return -1;
 	}
 
-	uint32_t curr_cluster = inodes[dir_inode_id].first_cluster;
+	uint32_t curr_cluster = inode.first_cluster;
 
 	while(curr_cluster != MIK_CLUSTER_EOF){
 		mik_read_block(curr_cluster, buf);
@@ -107,20 +106,21 @@ int mik_create(uint32_t parent_inode_id, const char *name, uint8_t type, uint8_t
 	vmm_map_page(page_phys, page_phys, PTE_PCD | PTE_PRESENT | PTE_RW);
 	uint8_t *buf = (uint8_t *)page_phys;
 
-	mik_read_block(mik_sb->inode_table_start, buf);
+	mik_inode_t inode;
+	mik_read_inode(new_inode, &inode, buf);
 
-	mik_inode_t *inodes = (mik_inode_t *)buf;
+	inode.type = type;
+	inode.perms = perms;
+	inode.links = 1;
+	inode.size = 0;
+	inode.first_cluster = new_cluster;
+	inode.parent_inode = parent_inode_id;
 
-	inodes[new_inode].type = type;
-	inodes[new_inode].perms = perms;
-	inodes[new_inode].links = 1;
-	inodes[new_inode].size = 0;
-	inodes[new_inode].first_cluster = new_cluster;
-	inodes[new_inode].parent_inode = parent_inode_id;
+	mik_write_inode(new_inode, &inode, buf);
 
-	mik_write_block(mik_sb->inode_table_start, buf);
+	mik_read_inode(parent_inode_id, &inode, buf);
 
-	uint32_t curr_cluster = inodes[parent_inode_id].first_cluster;
+	uint32_t curr_cluster = inode.first_cluster;
 
 	while(curr_cluster != MIK_CLUSTER_EOF){
 		mik_read_block(curr_cluster, buf);
@@ -139,11 +139,10 @@ int mik_create(uint32_t parent_inode_id, const char *name, uint8_t type, uint8_t
 
 				mik_write_block(curr_cluster, buf);
 
-				mik_read_block(mik_sb->inode_table_start, buf);
+				mik_read_inode(parent_inode_id, &inode, buf);
 
-				inodes = (mik_inode_t *)buf;
-				inodes[parent_inode_id].size += sizeof(mik_dirent_t);
-				mik_write_block(mik_sb->inode_table_start, buf);
+				inode.size += sizeof(mik_dirent_t);
+				mik_write_inode(parent_inode_id, &inode, buf);
 
 				pmm_free_block(page_phys);
 
@@ -164,10 +163,10 @@ int mik_chmod(uint32_t inode_id, int mode, bool change){
 	vmm_map_page(page_phys, page_phys, PTE_PCD | PTE_PRESENT | PTE_RW);
 	uint8_t *buf = (uint8_t *)page_phys;
 
-	mik_read_block(mik_sb->inode_table_start, buf);
-	mik_inode_t *inodes = (mik_inode_t *)buf;
+	mik_inode_t inode;
+	mik_read_inode(inode_id, &inode, buf);
 
-	if(inodes[inode_id].type != MIK_TYPE_FILE){
+	if(inode.type != MIK_TYPE_FILE){
 		pmm_free_block(page_phys);
 		return -1;
 	}
@@ -175,15 +174,15 @@ int mik_chmod(uint32_t inode_id, int mode, bool change){
 	if(change){
 		switch(mode){
 			case 1:
-				inodes[inode_id].perms |= MIK_PERM_EXEC;
+				inode.perms |= MIK_PERM_EXEC;
 				break;
 
 			case 2:
-				inodes[inode_id].perms |= MIK_PERM_WRITE;
+				inode.perms |= MIK_PERM_WRITE;
 				break;
 
 			case 3:
-				inodes[inode_id].perms |= MIK_PERM_READ;
+				inode.perms |= MIK_PERM_READ;
 				break;
 
 			default:
@@ -193,15 +192,15 @@ int mik_chmod(uint32_t inode_id, int mode, bool change){
 	} else {
 		switch(mode){
 			case 1:
-				inodes[inode_id].perms &= ~MIK_PERM_EXEC;
+				inode.perms &= ~MIK_PERM_EXEC;
 				break;
 
 			case 2:
-				inodes[inode_id].perms &= ~MIK_PERM_WRITE;
+				inode.perms &= ~MIK_PERM_WRITE;
 				break;
 
 			case 3:
-				inodes[inode_id].perms &= ~MIK_PERM_READ;
+				inode.perms &= ~MIK_PERM_READ;
 				break;
 
 			default:
@@ -211,17 +210,16 @@ int mik_chmod(uint32_t inode_id, int mode, bool change){
 
 	}
 
-	mik_write_block(mik_sb->inode_table_start, buf);
-
+	mik_write_inode(inode_id, &inode, buf);
 	pmm_free_block(page_phys);
 
 	return 1;
 }
 
 
-int mik_free_chain(uint32_t start_cluster){
+void mik_free_chain(uint32_t start_cluster){
 	if(start_cluster == 0 || start_cluster == MIK_CLUSTER_EOF){
-		return -1;
+		return;
 	}
 
 	uint32_t page_phys = pmm_alloc_block();
@@ -261,22 +259,22 @@ int mik_delete(uint32_t parent_inode_id, const char *name, bool is_dir){
 	vmm_map_page(page_phys, page_phys, PTE_PCD | PTE_PRESENT | PTE_RW);
 	uint8_t *buf = (uint8_t *)page_phys;
 
-	mik_read_block(mik_sb->inode_table_start, buf);
-	mik_inode_t *inodes = (mik_inode_t *)buf;
+	mik_inode_t inode;
+	mik_read_inode(target, &inode, buf);
 
 	uint8_t expected_type = is_dir ? MIK_TYPE_DIR : MIK_TYPE_FILE;
 
-	if(inodes[target].type != expected_type){
+	if(inode.type != expected_type){
 		pmm_free_block(page_phys);
 		return -3;
 	}
 
-	uint32_t target_cluster = inodes[target].first_cluster;
+	uint32_t target_cluster = inode.first_cluster;
 
 	uint32_t curr_cluster;
 
 	if(is_dir){
-		curr_cluster = inodes[target].first_cluster;
+		curr_cluster = inode.first_cluster;
 
 		while(curr_cluster != MIK_CLUSTER_EOF){
 			mik_read_block(curr_cluster, buf);
@@ -295,9 +293,9 @@ int mik_delete(uint32_t parent_inode_id, const char *name, bool is_dir){
 		}
 	}
 
-	mik_read_block(mik_sb->inode_table_start, buf);
+	mik_read_inode(parent_inode_id, &inode, buf);
 
-	curr_cluster = inodes[parent_inode_id].first_cluster;
+	curr_cluster = inode.first_cluster;
 
 	bool removed = false;
 
@@ -323,16 +321,19 @@ int mik_delete(uint32_t parent_inode_id, const char *name, bool is_dir){
 
 	mik_free_chain(target_cluster);
 
-	mik_read_block(mik_sb->inode_table_start, buf);
+	mik_read_inode(target, &inode, buf);
 
-	inodes[target].type = MIK_TYPE_FREE;
-	inodes[target].size = 0;
-	inodes[target].first_cluster = 0;
-	inodes[target].links = 0;
+	inode.type = MIK_TYPE_FREE;
+	inode.size = 0;
+	inode.first_cluster = 0;
+	inode.links = 0;
 
-	inodes[parent_inode_id].size -= sizeof(mik_dirent_t);
+	mik_write_inode(target, &inode, buf);
+	mik_read_inode(parent_inode_id, &inode, buf);
 
-	mik_write_block(mik_sb->inode_table_start, buf);
+	inode.size -= sizeof(mik_dirent_t);
+
+	mik_write_inode(parent_inode_id, &inode, buf);
 
 	pmm_free_block(page_phys);
 

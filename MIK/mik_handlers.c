@@ -3,21 +3,20 @@ int mik_write(uint32_t inode_id, const void *data, uint32_t size){
 	vmm_map_page(page_phys, page_phys, PTE_PCD | PTE_PRESENT | PTE_RW);
 	uint8_t *buf = (uint8_t *)page_phys;
 
-	mik_read_block(mik_sb->inode_table_start, buf);
+	mik_inode_t inode;
+	mik_read_inode(inode_id, &inode, buf);
 
-	mik_inode_t *inodes = (mik_inode_t *)buf;
-
-	if(inodes[inode_id].type != MIK_TYPE_FILE){
+	if(inode.type != MIK_TYPE_FILE){
 		pmm_free_block(page_phys);
 		return -1;
 	}
 
-	if((inodes[inode_id].perms & MIK_PERM_WRITE) == 0){
+	if((inode.perms & MIK_PERM_WRITE) == 0){
 		pmm_free_block(page_phys);
 		return -2;
 	}
 
-	uint32_t curr_cluster = inodes[inode_id].first_cluster;
+	uint32_t curr_cluster = inode.first_cluster;
 
 	uint32_t written = 0;
 	const uint8_t *src = (const uint8_t *)data;
@@ -36,12 +35,9 @@ int mik_write(uint32_t inode_id, const void *data, uint32_t size){
 			if(next == -1){
 				mik_write_block(curr_cluster, buf);
 
-				mik_read_block(mik_sb->inode_table_start, buf);
+				inode.size = written;
 
-				inodes = (mik_inode_t *)buf;
-				inodes[inode_id].size = written;
-
-				mik_write_block(mik_sb->inode_table_start, buf);
+				mik_write_inode(inode_id, &inode, buf);
 
 				pmm_free_block(page_phys);
 				return -3;
@@ -54,12 +50,9 @@ int mik_write(uint32_t inode_id, const void *data, uint32_t size){
 		curr_cluster = c->next_cluster;
 	}
 
-	mik_read_block(mik_sb->inode_table_start, buf);
+	inode.size = written;
 
-	inodes = (mik_inode_t *)buf;
-	inodes[inode_id].size = written;
-
-	mik_write_block(mik_sb->inode_table_start, buf);
+	mik_write_inode(inode_id, &inode, buf);
 
 	pmm_free_block(page_phys);
 	return written;
@@ -70,20 +63,20 @@ int mik_read(uint32_t inode_id, void *buffer, uint32_t max_size){
 	vmm_map_page(page_phys, page_phys, PTE_PCD | PTE_PRESENT | PTE_RW);
 	uint8_t *buf = (uint8_t *)page_phys;
 
-	mik_read_block(mik_sb->inode_table_start, buf);
-	mik_inode_t *inodes = (mik_inode_t *)buf;
+	mik_inode_t inode;
+	mik_read_inode(inode_id, &inode, buf);
 
-	if(inodes[inode_id].type != MIK_TYPE_FILE){
+	if(inode.type != MIK_TYPE_FILE){
 		pmm_free_block(page_phys);
 		return -1;
 	}
-	if((inodes[inode_id].perms & MIK_PERM_READ) == 0){
+	if((inode.perms & MIK_PERM_READ) == 0){
 		pmm_free_block(page_phys);
 		return -2;
 	}
 
-	uint32_t curr_cluster = inodes[inode_id].first_cluster;
-	uint32_t to_read = (inodes[inode_id].size < max_size) ? inodes[inode_id].size : max_size;
+	uint32_t curr_cluster = inode.first_cluster;
+	uint32_t to_read = (inode.size < max_size) ? inode.size : max_size;
 
 	uint8_t *dst = (uint8_t *)buffer;
 	uint32_t read_bytes = 0;
